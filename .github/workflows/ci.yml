@@ -59,3 +59,30 @@ jobs:
           key: embedding-model-${{ hashFiles('lib/retrieval/dense.ts') }}
       # `npm run build` runs the index build first (prebuild), which embeds the KB.
       - run: npm run build
+
+  retrieval-quality:
+    name: Retrieval quality gate
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: node_modules/@huggingface/transformers/.cache
+          key: embedding-model-${{ hashFiles('lib/retrieval/dense.ts') }}
+      - run: npm run build-index
+      - name: Run the gate-only evaluation
+        run: npm run eval:gate
+      - name: Fail if a refused question was answered
+        run: |
+          grep -qF "out-of-scope questions: **0**" eval/report-gate-only.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: eval/*.md
