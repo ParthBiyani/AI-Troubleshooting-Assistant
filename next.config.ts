@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Native ONNX runtime bindings can't be bundled; load them from node_modules at runtime.
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "sharp"],
 };
 
 export default nextConfig;
