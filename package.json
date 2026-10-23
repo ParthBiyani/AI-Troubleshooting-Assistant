@@ -11,7 +11,9 @@
     "test": "vitest run",
     "build-index": "tsx scripts/build-index.ts",
     "prebuild": "npm run build-index",
+    "eval": "tsx eval/run-eval.ts --llm",
     "eval:retrieval": "tsx eval/retrieval-eval.ts",
+    "eval:gate": "tsx eval/run-eval.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
