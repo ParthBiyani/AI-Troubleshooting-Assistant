@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "build-index": "tsx scripts/build-index.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
