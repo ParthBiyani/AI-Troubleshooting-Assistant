@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build-index": "tsx scripts/build-index.ts",
+    "prebuild": "npm run build-index",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
