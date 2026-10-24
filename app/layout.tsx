@@ -21,6 +21,12 @@ export const viewport: Viewport = {
   themeColor: "#f3f6f7",
 };
 
+/**
+ * Runs before first paint so a visitor who chose dark never sees a white flash. Light is the default
+ * whatever the system setting is; only an explicit choice (the toggle or ?theme=) switches to dark.
+ */
+const THEME_SCRIPT = `try{var q=new URLSearchParams(location.search).get("theme");var t=q==="dark"||q==="light"?q:localStorage.getItem("theme");document.documentElement.dataset.theme=t==="dark"?"dark":"light"}catch(e){document.documentElement.dataset.theme="light"}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +34,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
     </html>
   );
