@@ -9,6 +9,7 @@ import {
   MinusCircle,
   XCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AskResponse } from "@/lib/pipeline";
@@ -29,6 +30,20 @@ function SourceCard({
   question: string;
 }) {
   const { entry, retrieval, usedAsContext } = source;
+  // Chats reopened from history keep only a slim copy of each entry; fetch the full text on demand.
+  const [markdown, setMarkdown] = useState(entry.markdown);
+  const [loadFailed, setLoadFailed] = useState(false);
+  useEffect(() => {
+    if (!open || markdown || loadFailed) return;
+    let cancelled = false;
+    fetch(`/api/entries/${entry.id}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j: { markdown: string }) => !cancelled && setMarkdown(j.markdown))
+      .catch(() => !cancelled && setLoadFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, markdown, loadFailed, entry.id]);
   const priority = entry.defaultPriority.slice(0, 2);
   return (
     <div
@@ -111,7 +126,17 @@ function SourceCard({
             </a>
           </div>
           <div className="entry-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.markdown}</ReactMarkdown>
+            {markdown ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+            ) : loadFailed ? (
+              <p className="text-muted">The full entry could not be loaded. Try again later.</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="skeleton h-4 w-3/4" />
+                <div className="skeleton h-3 w-full" />
+                <div className="skeleton h-3 w-5/6" />
+              </div>
+            )}
           </div>
         </div>
       )}
