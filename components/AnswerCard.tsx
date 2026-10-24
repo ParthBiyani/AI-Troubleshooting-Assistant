@@ -124,16 +124,23 @@ export function AnswerCard({
             </div>
           )}
 
-          {answer.escalation && (
+          {answer.escalations.length > 0 && (
             <div className="rounded-md border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/40">
-              <h4 className="font-semibold">
-                Escalate to {teamName(answer.escalation.team_code)} ({answer.escalation.team_code})
-                <SourceChip id={answer.escalation.source_id} onOpen={onOpenEntry} />
-              </h4>
-              <p className="mt-1">{answer.escalation.when}</p>
-              {answer.escalation.attach.length > 0 && (
-                <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                  Attach: {answer.escalation.attach.join("; ")}
+              <h4 className="font-semibold">Escalation</h4>
+              <ul className="mt-1 space-y-1">
+                {answer.escalations.map((e) => (
+                  <li key={e.team_code + e.when}>
+                    <strong>
+                      {teamName(e.team_code)} ({e.team_code})
+                    </strong>{" "}
+                    {e.when}
+                    <SourceChip id={e.source_id} onOpen={onOpenEntry} />
+                  </li>
+                ))}
+              </ul>
+              {answer.attach.length > 0 && (
+                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                  Attach: {answer.attach.join("; ")}
                 </p>
               )}
             </div>

@@ -52,26 +52,27 @@ Show the architecture diagram from the README and say three things:
 
 ## 4. Results (1.5 min)
 
-|                                   | Tuned set (52) | Held-out set (24) |
-| --------------------------------- | -------------- | ----------------- |
-| Decisions correct                 | 94.2%          | 75.0%             |
-| Out-of-scope questions answered   | 0              | 0                 |
-| Statements supported by the judge | 99.5%          | 98.3%             |
-| Latency p50                       | 3.1 s          | 2.6 s             |
+|                                   | First design, unseen (24 questions) | Second design, sealed (44 questions, run once) |
+| --------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| Decisions correct                 | 75.0%                               | 88.6%                                          |
+| Out-of-scope questions answered   | 0                                   | 0                                              |
+| Statements supported by the judge | 98.3%                               | 100% (260/260)                                 |
+| Latency p50                       | 2.6 s                               | 2.5 s                                          |
 
-Say it plainly: "The first number is flattering because I chose the thresholds on those questions. The
-second set I wrote afterwards and never tuned on; that is the one to trust. The drop is almost entirely
-cases where the assistant asked for more information when it could have answered. That is the safe way to
-be wrong, and the dangerous case, answering something out of scope, is zero on both."
+Say it plainly: "My first version scored 94-96% on the questions I had tuned it on and 75% on new ones. I used
+one live question to find three real faults: the gate looked at the wrong entry's score, the badge contradicted
+the answer, and escalations were incomplete. I fixed those, wrote 44 new questions _before_ changing anything,
+froze the code, and ran them once: 88.6%. The dangerous case, answering something out of scope, is zero on every
+set."
 
 Retrieval table: keyword 83.8% Hit@1, semantic 94.6%, hybrid 91.9%; all about 97% at Hit@3.
 
 ## 5. Limitations and next steps (1.5 min)
 
 - Synthetic KB, small question sets, written by one person.
-- The gate is hand-tuned and too cautious on mixed paraphrases.
+- Very short vague messages are sometimes told "not in KB" instead of being asked questions (3 of 5 vague questions on the sealed set).
 - The judge is itself a model; it screens, it does not prove.
-- Free-tier rate limits.
+- The sealed set is spent; further tuning needs a fresh one. Free-tier daily limits ran out twice during evaluation.
 - Next: a bigger labelled set with a proper split, calibrated confidence, a feedback button per answer,
   ticket-system integration, Hindi queries.
 

@@ -105,21 +105,20 @@ export function SourcesPanel({
             <dd>{response.gate.decision}</dd>
             <dt className="text-zinc-500">Reason</dt>
             <dd>{response.gate.reason}</dd>
-            <dt className="text-zinc-500">Top semantic</dt>
+            <dt className="text-zinc-500">Best semantic</dt>
             <dd>
-              {response.gate.signals.topDense?.toFixed(3) ?? "n/a"} (floor{" "}
-              {response.gate.thresholds.denseFloor}, answer ≥ {response.gate.thresholds.denseAnswer}
-              )
+              {response.gate.signals.maxDense?.toFixed(3) ?? "n/a"} (refuse below{" "}
+              {response.gate.thresholds.denseFloor})
             </dd>
-            <dt className="text-zinc-500">Gap to #2</dt>
+            <dt className="text-zinc-500">Top entry semantic</dt>
             <dd>
-              {response.gate.signals.denseGap?.toFixed(3) ?? "n/a"} (min{" "}
-              {response.gate.thresholds.minGap})
+              {response.gate.signals.topEntryDense?.toFixed(3) ?? "n/a"} (confident at or above{" "}
+              {response.gate.thresholds.denseAnswer})
             </dd>
-            <dt className="text-zinc-500">Top keyword</dt>
+            <dt className="text-zinc-500">Top entry keyword</dt>
             <dd>
-              {response.gate.signals.topBm25.toFixed(0)} (strong ≥{" "}
-              {response.gate.thresholds.strongKeyword})
+              {response.gate.signals.topEntryBm25.toFixed(0)} (confident at or above{" "}
+              {response.gate.thresholds.keywordAnswer})
             </dd>
             <dt className="text-zinc-500">Model</dt>
             <dd>

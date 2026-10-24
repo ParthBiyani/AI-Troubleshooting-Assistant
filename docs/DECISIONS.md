@@ -30,33 +30,65 @@ for its Hit@5 and robustness on exact codes, but on this set it did not beat sem
 
 ## 4. A deterministic gate before the model
 
-The decision between answering, asking for more information and refusing is made by code from three
-retrieval signals: the best semantic score, the gap between #1 and #2, and the best BM25 score. This keeps
-"do not invent a resolution" from depending on the model obeying a prompt. For `not_in_kb` the model is not
-called at all.
+The first decision, refuse or continue, is made by code from retrieval scores, so "do not invent a
+resolution" does not depend on the model obeying a prompt. For `not_in_kb` the model is not called at all.
 
-Thresholds (`lib/retrieval/gate.ts`), chosen by reading the signals for every question in the test set:
+Current rule (`lib/retrieval/gate.ts`, second iteration):
 
-| Threshold       | Value | Meaning                                                                                                                       |
-| --------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `denseFloor`    | 0.62  | Below this the closest entry is unrelated, so refuse. Every out-of-scope and adversarial question except two scored below it. |
-| `denseAnswer`   | 0.70  | At or above this a match is strong enough to answer. Every vague question except "payment failing" scored below it.           |
-| `minGap`        | 0.03  | A lead over the runner-up this large means the match is unambiguous.                                                          |
-| `strongKeyword` | 300   | Strong exact-term evidence can substitute for the gap. "payment failing" scored 50 here.                                      |
+| Threshold       | Value | Meaning                                                                                               |
+| --------------- | ----- | ----------------------------------------------------------------------------------------------------- |
+| `denseFloor`    | 0.62  | If the best semantic score across all candidates is below this, nothing in the KB is close: refuse    |
+| `denseAnswer`   | 0.70  | The semantic score of the entry that fused ranking put first must reach this to answer confidently    |
+| `keywordAnswer` | 150   | ...and that same entry needs keyword support at least this strong (vague messages share few keywords) |
 
-Caveat: these were tuned on the same questions they are scored on. See the README limitations.
+Anything between the floor and the confident rule is "uncertain": the model is shown the top three entries and
+chooses between answering, asking questions, or saying the KB does not cover it. The label the user sees is the
+validated model output, not the gate's guess.
 
-Two out-of-scope questions ("laptop VPN", "Apple Pay") score 0.63 to 0.67 because they share vocabulary with
-network and card entries. They are sent to `clarify`, which is a soft failure (the user is asked a question)
-rather than a false answer. We chose not to widen `denseFloor` to catch them because that would also refuse
-legitimate vague-but-in-scope questions.
+### What changed in the second iteration, and why
+
+A live question ("Payment is hitting 504 again and again") exposed two faults:
+
+1. **The gate read the wrong entry's score.** It took the highest semantic score among all five retrieved
+   entries, which belonged to an unrelated entry (0.707) rather than the correct one that fused ranking put first
+   (0.675). Signals are now taken from the entry ranked first by fusion, plus a keyword-support floor. The old
+   "gap to the runner-up" and "strong keyword" thresholds are gone.
+2. **The badge said "Need more info" on a full answer.** The label came from the gate even when the model had
+   produced a grounded answer. The label is now the validated model mode. This deliberately relaxes the earlier
+   rule that the model could be more cautious than the gate but never less; the validator still enforces
+   grounding, and the gate still refuses outright when nothing is close.
+
+Also changed: the schema now returns every escalation route the entry lists (previously one) and the full attach
+list, and prompt v1.2 tells the model that a message too vague to judge is "clarify", not "not in KB".
+
+### How it was evaluated without fooling myself
+
+- The 52 original questions and the 24 held-out questions are now **development data**: I looked at their
+  failures, so any score on them is optimistic. Thresholds and the prompt were adjusted on them only.
+- Before changing anything, I wrote **44 new questions** (`eval/sealed.json`) and committed them. The code was
+  frozen, and the sealed set was run **once**. Nothing was changed afterwards.
+
+| Set                          | Decisions correct | Out-of-scope wrongly answered | Notes                                  |
+| ---------------------------- | ----------------- | ----------------------------- | -------------------------------------- |
+| Held-out, old system         | 18/24 (75.0%)     | 0                             | Before this iteration                  |
+| Held-out, new (development)  | 21/24 (87.5%)     | 0                             | Optimistic: failures were inspected    |
+| Original 52, new (dev)       | 52/52 (100%)      | 0                             | In-sample on two iterations; ignore it |
+| **Sealed, new (clean test)** | **39/44 (88.6%)** | **0**                         | The honest figure                      |
+
+Sealed-set misses: three very short vague messages ("customers are complaining about checkout", "the system
+seems down", "can you check the machine") scored 0.59 to 0.61 semantically and were refused by the floor
+instead of getting follow-up questions; one credentials question got follow-ups; one `KEY_REVOKED` question was
+judged by the model to be outside the KB. Very short vague messages and genuinely out-of-scope ones score
+alike on a small embedding model, so the floor cannot separate them without a better scorer (a cross-encoder
+re-ranker is the next step). Groundedness on the sealed answers: 260 of 260 statements supported by a judge
+model (Gemini 3.1 Flash-Lite, scoring Gemini 3.5 Flash-Lite answers).
 
 ## 5. Grounding enforced in code
 
 The model's output must match a Zod schema where every cause, check, resolution step and escalation has a
 `source_id`. `validateAnswer` removes anything citing an entry that was not in the retrieved context and any
 escalation to a team not in the directory. If nothing grounded survives, the UI shows the raw KB entries.
-The model may downgrade a gate decision to `not_in_kb` but never upgrade it.
+A gate refusal is final; otherwise the model's validated mode is the label (see section 4).
 
 ## 6. Prompt kept small
 
@@ -81,6 +113,6 @@ model in the chain fails, the user still gets the retrieved entries.
 - Deploy and verify the embedding model fits the hosting provider's function size limit.
 - Done: full LLM evaluation, a judge-model groundedness score, a held-out set and a ten-answer manual
   read (see the README and `docs/SPOT_CHECK.md`).
-- Prompt change to list every escalation in the entry, and re-run both sets.
-- Retune the gate on a larger split; the held-out set is now used up as a test set if it informs changes.
+- Done: every escalation route and the attach list are returned (prompt v1.2), and the sealed set was run once.
+- Next: a cross-encoder re-ranker for the very short vague messages, evaluated on a fresh sealed set. The current sealed set is now spent.
 - A one-off Prompt Guard fix (threshold 0.98) was made after the held-out run exposed a false positive.

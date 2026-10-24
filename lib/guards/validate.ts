@@ -30,19 +30,17 @@ export function validateAnswer(
     likely_causes: keep(raw.likely_causes, "cause"),
     checks: keep(raw.checks, "check"),
     resolution: keep(raw.resolution, "resolution step"),
-    escalation: null,
+    escalations: [],
     used_entry_ids: raw.used_entry_ids.filter((id) => retrievedIds.has(id)),
   };
 
-  if (raw.escalation) {
-    if (!teamCodes.has(raw.escalation.team_code)) {
-      issues.push(`Dropped escalation to unknown team "${raw.escalation.team_code}".`);
-    } else if (!retrievedIds.has(raw.escalation.source_id)) {
-      issues.push(
-        `Dropped escalation citing "${raw.escalation.source_id}", which was not retrieved.`,
-      );
+  for (const esc of raw.escalations) {
+    if (!teamCodes.has(esc.team_code)) {
+      issues.push(`Dropped escalation to unknown team "${esc.team_code}".`);
+    } else if (!retrievedIds.has(esc.source_id)) {
+      issues.push(`Dropped escalation citing "${esc.source_id}", which was not retrieved.`);
     } else {
-      answer.escalation = raw.escalation;
+      answer.escalations.push(esc);
     }
   }
 

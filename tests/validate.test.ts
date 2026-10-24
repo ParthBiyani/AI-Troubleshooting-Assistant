@@ -11,7 +11,11 @@ const base: LlmAnswer = {
     { step: "invented", level: "L2", source_id: "KB-XXX-999" },
   ],
   resolution: [{ text: "r", source_id: "KB-PAY-002" }],
-  escalation: { team_code: "PPE", when: "w", attach: ["a"], source_id: "KB-PAY-002" },
+  escalations: [
+    { team_code: "PPE", when: "w", source_id: "KB-PAY-002" },
+    { team_code: "ABP", when: "bank side", source_id: "KB-PAY-002" },
+  ],
+  attach: ["a"],
   priority: "P2",
   clarifying_questions: [],
   used_entry_ids: ["KB-PAY-002", "KB-XXX-999"],
@@ -31,15 +35,30 @@ describe("validateAnswer", () => {
 
   it("drops escalations to teams outside the directory", () => {
     const r = validateAnswer(
-      { ...base, escalation: { ...base.escalation!, team_code: "MADE-UP" } },
+      { ...base, escalations: [{ team_code: "MADE-UP", when: "w", source_id: "KB-PAY-002" }] },
       retrieved,
       teams,
     );
-    expect(r.answer.escalation).toBeNull();
+    expect(r.answer.escalations).toEqual([]);
+    expect(r.issues.join(" ")).toContain("MADE-UP");
   });
 
-  it("keeps a valid escalation", () => {
-    expect(validateAnswer(base, retrieved, teams).answer.escalation?.team_code).toBe("PPE");
+  it("drops escalations citing entries that were not retrieved", () => {
+    const r = validateAnswer(
+      { ...base, escalations: [{ team_code: "PPE", when: "w", source_id: "KB-XXX-999" }] },
+      retrieved,
+      teams,
+    );
+    expect(r.answer.escalations).toEqual([]);
+  });
+
+  it("keeps every valid escalation route, in order", () => {
+    // ABP is not in this test's directory, so only PPE survives; both are kept when listed.
+    const both = validateAnswer(base, retrieved, new Set(["PPE", "ABP"]));
+    expect(both.answer.escalations.map((e) => e.team_code)).toEqual(["PPE", "ABP"]);
+    expect(
+      validateAnswer(base, retrieved, teams).answer.escalations.map((e) => e.team_code),
+    ).toEqual(["PPE"]);
   });
 
   it("fails when nothing grounded survives in answer mode", () => {

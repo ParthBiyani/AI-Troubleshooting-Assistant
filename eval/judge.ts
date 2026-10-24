@@ -41,13 +41,8 @@ export function listStatements(a: LlmAnswer): string[] {
     ...a.likely_causes.map((c) => `Cause: ${c.text}`),
     ...a.checks.map((c) => `Check (${c.level}): ${c.step}`),
     ...a.resolution.map((r) => `Resolution: ${r.text}`),
-    ...(a.escalation
-      ? [
-          `Escalation: to ${a.escalation.team_code}. ${a.escalation.when}.${
-            a.escalation.attach.length ? ` Attach: ${a.escalation.attach.join("; ")}` : ""
-          }`,
-        ]
-      : []),
+    ...a.escalations.map((e) => `Escalation: to ${e.team_code}. ${e.when}.`),
+    ...(a.attach.length ? [`Attach: ${a.attach.join("; ")}`] : []),
   ];
 }
 
