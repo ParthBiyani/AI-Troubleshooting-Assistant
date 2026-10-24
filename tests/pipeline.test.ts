@@ -34,12 +34,8 @@ const goodAnswer: LlmAnswer = {
   likely_causes: [{ text: "Retry without idempotency key", source_id: "KB-PAY-005" }],
   checks: [{ step: "Compare the two payment ids", level: "L1", source_id: "KB-PAY-005" }],
   resolution: [],
-  escalation: {
-    team_code: "PPE",
-    when: "If many merchants",
-    attach: ["trace ids"],
-    source_id: "KB-PAY-005",
-  },
+  escalations: [{ team_code: "PPE", when: "If many merchants", source_id: "KB-PAY-005" }],
+  attach: ["trace ids"],
   priority: "P2",
   clarifying_questions: [],
   used_entry_ids: ["KB-PAY-005"],
@@ -133,7 +129,7 @@ describe("ask pipeline", () => {
       answer: {
         ...goodAnswer,
         likely_causes: [],
-        escalation: null,
+        escalations: [],
         checks: [{ step: "x", level: "L1", source_id: "KB-NOPE-001" }],
       },
       spec: { provider: "groq", model: "m" },
@@ -160,5 +156,51 @@ describe("ask pipeline", () => {
     const second = await ask({ question: "  Customer   CHARGED twice " });
     expect(second.meta.cached).toBe(true);
     expect(generateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the result as an answer when the gate was uncertain but the model produced a grounded answer", async () => {
+    // The "504 again and again" case: top entry scored 0.675 semantic / 208 keyword, so the gate is uncertain.
+    retrieveMock.mockResolvedValue({
+      hits: [
+        hit("KB-PAY-005", 0.675, 208),
+        hit("KB-PAY-008", 0.707, 74),
+        hit("KB-PAY-001", 0.6, 50),
+      ],
+      denseAvailable: true,
+    });
+    generateMock.mockResolvedValue({
+      answer: goodAnswer,
+      spec: { provider: "groq", model: "m" },
+      failedAttempts: [],
+      tokens: {},
+    });
+    const ask = await freshAsk();
+    const r = await ask({ question: "payment is hitting a timeout again and again" });
+    expect(r.gate.decision).toBe("clarify");
+    expect(r.answer?.mode).toBe("answer");
+    expect(r.mode).toBe("answer");
+  });
+
+  it("labels the result as clarify when the gate was confident but the model asks questions", async () => {
+    retrieveMock.mockResolvedValue({ hits: strongHits, denseAvailable: true });
+    generateMock.mockResolvedValue({
+      answer: {
+        ...goodAnswer,
+        mode: "clarify",
+        likely_causes: [],
+        checks: [],
+        resolution: [],
+        escalations: [],
+        attach: [],
+        clarifying_questions: ["One merchant or many?"],
+      },
+      spec: { provider: "groq", model: "m" },
+      failedAttempts: [],
+      tokens: {},
+    });
+    const ask = await freshAsk();
+    const r = await ask({ question: "customer charged twice, several merchants maybe" });
+    expect(r.gate.decision).toBe("answer");
+    expect(r.mode).toBe("clarify");
   });
 });

@@ -111,7 +111,7 @@ export async function ask(input: {
       gate: {
         decision: "not_in_kb",
         reason: "Blocked by the prompt-injection guard before retrieval.",
-        signals: { topDense: null, denseGap: null, topBm25: 0 },
+        signals: { maxDense: null, topEntryDense: null, topEntryBm25: 0 },
         thresholds: THRESHOLDS,
       },
       guards,
@@ -189,13 +189,15 @@ export async function ask(input: {
 
         if (!validation.failed) {
           response.answer = validation.answer;
-          // The model may be more conservative than the gate, never less.
+          // The label always describes what the validated output actually is. Only an
+          // outright refusal by the gate is final without the model; in every other case
+          // the model's own (validated) mode is what the user sees.
           if (validation.answer.mode === "not_in_kb") {
             response.mode = "not_in_kb";
             response.message = NOT_IN_KB_MESSAGE;
             response.answer = null;
           } else {
-            response.mode = validation.answer.mode === "clarify" ? "clarify" : gate.decision;
+            response.mode = validation.answer.mode;
             response.message = "";
           }
         }
