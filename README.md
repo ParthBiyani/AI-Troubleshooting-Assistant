@@ -13,9 +13,11 @@ the issue it says so instead of guessing.
 The idea in one line: **the AI writes the answer, it does not decide what is true.** Retrieval and code
 decide what the KB supports; the model only writes it up, and code checks the result.
 
-![TriageGPT answering a question, with the cited sources and scores beside it](docs/screenshots/answer-desktop.png)
+<p align="center">
+  <img src="docs/screenshots/demo-light-dark.gif" alt="TriageGPT answering the prompt 'Payment is hitting 504 again and again', in light mode and dark mode side by side" width="860" />
+</p>
 
-<p align="center"><img src="docs/screenshots/answer-mobile.png" alt="The same answer on a phone" width="320" /></p>
+<p align="center"><sub>One prompt, run in light and dark mode: the staged search, then checks, escalation routes and cited sources. The panes use a compact width so the text stays readable side by side.</sub></p>
 
 ## Using it
 
