@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { BGE_QUERY_PREFIX } from "./text";
 
 export interface DenseHit {
@@ -6,6 +7,7 @@ export interface DenseHit {
 }
 
 export const EMBEDDING_MODEL = "Xenova/bge-small-en-v1.5";
+export const MODEL_CACHE_DIR = join(process.cwd(), ".model-cache");
 
 type Extractor = (
   texts: string[],
@@ -16,10 +18,14 @@ let extractor: Promise<Extractor> | null = null;
 
 async function getExtractor(): Promise<Extractor> {
   if (!extractor) {
-    extractor = import("@huggingface/transformers").then(
-      (m) =>
-        m.pipeline("feature-extraction", EMBEDDING_MODEL, { dtype: "q8" }) as unknown as Extractor,
-    );
+    extractor = import("@huggingface/transformers").then((m) => {
+      // The index build downloads the model into this project folder, and the deployment
+      // bundles it, so serverless functions never download it or write to a read-only path.
+      m.env.cacheDir = MODEL_CACHE_DIR;
+      return m.pipeline("feature-extraction", EMBEDDING_MODEL, {
+        dtype: "q8",
+      }) as unknown as Extractor;
+    });
   }
   return extractor;
 }
