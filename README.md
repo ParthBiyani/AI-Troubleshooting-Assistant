@@ -13,11 +13,18 @@ the issue it says so instead of guessing.
 The idea in one line: **the AI writes the answer, it does not decide what is true.** Retrieval and code
 decide what the KB supports; the model only writes it up, and code checks the result.
 
-<p align="center">
-  <img src="docs/screenshots/demo-light-dark.gif" alt="TriageGPT answering the prompt 'Payment is hitting 504 again and again', in light mode and dark mode side by side" width="860" />
-</p>
+<table>
+  <tr>
+    <td align="center"><b>Light mode</b></td>
+    <td align="center"><b>Dark mode</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/demo-light.gif" alt="TriageGPT in light mode, answering 'Payment is hitting 504 again and again'" width="100%" /></td>
+    <td><img src="docs/screenshots/demo-dark.gif" alt="TriageGPT in dark mode, answering 'Payment is hitting 504 again and again'" width="100%" /></td>
+  </tr>
+</table>
 
-<p align="center"><sub>One prompt, run in light and dark mode: the staged search, then checks, escalation routes and cited sources. The panes use a compact width so the text stays readable side by side.</sub></p>
+<p align="center"><sub>The full app running the same prompt in each theme: the chat history sidebar, the staged search, the answer with checks and escalation routes, the cited sources with scores, and the Under the hood panel.</sub></p>
 
 ## Using it
 
