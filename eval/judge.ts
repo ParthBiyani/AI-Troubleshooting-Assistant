@@ -1,3 +1,4 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -5,8 +6,19 @@ import type { LlmAnswer } from "../lib/llm/schema";
 import type { KbEntry } from "../lib/kb/types";
 import { formatEntry } from "../lib/llm/prompts";
 
-/** A different, smaller model than the answer writer, so it is not grading its own work. */
-const JUDGE_MODEL = process.env.JUDGE_MODEL ?? "openai/gpt-oss-20b";
+/**
+ * A different model than the answer writer, so it is not grading its own work.
+ * Format: provider:model, same as LLM_MODELS.
+ */
+export const JUDGE_MODEL = process.env.JUDGE_MODEL ?? "groq:openai/gpt-oss-20b";
+
+function judgeModel() {
+  const [provider, ...rest] = JUDGE_MODEL.split(":");
+  const id = rest.join(":");
+  return provider === "google"
+    ? createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })(id)
+    : createGroq({ apiKey: process.env.GROQ_API_KEY })(id);
+}
 
 const verdictSchema = z.object({
   statements: z.array(
@@ -31,7 +43,9 @@ export function listStatements(a: LlmAnswer): string[] {
     ...a.resolution.map((r) => `Resolution: ${r.text}`),
     ...(a.escalation
       ? [
-          `Escalation: to ${a.escalation.team_code}. ${a.escalation.when}. Attach: ${a.escalation.attach.join("; ") || "nothing"}`,
+          `Escalation: to ${a.escalation.team_code}. ${a.escalation.when}.${
+            a.escalation.attach.length ? ` Attach: ${a.escalation.attach.join("; ")}` : ""
+          }`,
         ]
       : []),
   ];
@@ -45,7 +59,7 @@ export async function judgeGroundedness(
   if (statements.length === 0) return { total: 0, supported: 0, unsupported: [] };
 
   const { output } = await generateText({
-    model: createGroq({ apiKey: process.env.GROQ_API_KEY })(JUDGE_MODEL),
+    model: judgeModel(),
     temperature: 0,
     output: Output.object({ schema: verdictSchema }),
     system:

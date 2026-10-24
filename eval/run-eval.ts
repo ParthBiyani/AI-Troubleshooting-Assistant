@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ask } from "../lib/pipeline";
-import { judgeGroundedness } from "./judge";
+import { JUDGE_MODEL, judgeGroundedness } from "./judge";
+import { parseChain } from "../lib/llm/generate";
 
 interface Case {
   group: string;
@@ -99,6 +100,12 @@ async function main() {
     `Decision accuracy: **${correct}/${cases.length}** (${((100 * correct) / cases.length).toFixed(1)}%)`,
     `False answers on out-of-scope questions: **${falseAnswersOnOos}**`,
     `Correct source at rank 1 / in top 3 (answerable questions): **${top1}/${answerable}** / **${top3}/${answerable}**`,
+    withLlm
+      ? `Answer models (fallback order): ${parseChain()
+          .map((m) => m.provider + ":" + m.model)
+          .join(", ")}`
+      : "",
+    withJudge ? `Judge model: ${JUDGE_MODEL}` : "",
     withLlm
       ? `Model answers: ${llmAnswers}; citations/teams removed by the validator: ${citationIssues}`
       : "",
