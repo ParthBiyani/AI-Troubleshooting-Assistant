@@ -96,7 +96,19 @@ Gate decisions on all 52 questions: 49 correct (94.2%) with **0 false answers on
 Three misses: one error-code-only question sent to `clarify`, and two out-of-scope questions ("laptop VPN",
 "Apple Pay") that got `clarify` rather than `not_in_kb`.
 
-With the model in the loop (`npm run eval`, [eval/report.md](eval/report.md)): **50/52 decisions correct (96.2%)**, 0 false answers on out-of-scope questions, 35 model-written answers with 0 citations or teams removed by the validator, latency p50 2.5 s / p95 4.2 s. The model improved one result over the gate alone: it downgraded "laptop VPN" to `not_in_kb`. The two remaining misses are "RedisConnectionException in payments logs" (sent to `clarify`) and "Apple Pay" (`clarify` instead of `not_in_kb`). Groundedness is so far only checked structurally (citations and team names); a judge-model score and a manual spot-check are still to do.
+With the model in the loop, by run (`npm run eval`; full tables in [eval/report.md](eval/report.md) and [eval/report-heldout.md](eval/report-heldout.md)):
+
+| Set                        | Answer model / judge model               | Decisions correct | Wrongly answered out-of-scope | Statements supported | Latency p50 / p95 |
+| -------------------------- | ---------------------------------------- | ----------------- | ----------------------------- | -------------------- | ----------------- |
+| Tuned, 52 questions        | gpt-oss-120b, no judge                   | 50/52 (96.2%)     | 0                             | not scored           | 2.5 s / 4.2 s     |
+| Tuned, 52 questions        | Gemini 3.5 Flash-Lite / Gemini 3.5 Flash | 49/52 (94.2%)     | 0                             | 204/205 (99.5%)      | 3.1 s / 6.7 s     |
+| **Held-out, 24 questions** | gpt-oss-120b / gpt-oss-20b               | **18/24 (75.0%)** | 0                             | 116/118 (98.3%)      | 2.6 s / 4.4 s     |
+
+The runs use different models because Groq's free tier has a daily token limit that the evaluations used
+up. The held-out set was written after the thresholds were chosen and never used to tune anything, so its
+75% is the honest figure: the drop is almost entirely questions that could have been answered but got a
+clarifying question. Ten answers were also read by hand against their entries ([docs/SPOT_CHECK.md](docs/SPOT_CHECK.md)):
+no invented steps or teams, but secondary escalations and attach lists are sometimes omitted.
 
 ## Limitations
 
@@ -108,8 +120,9 @@ With the model in the loop (`npm run eval`, [eval/report.md](eval/report.md)): *
 - Hybrid retrieval did not beat semantic-only at Hit@1 on this set. Hybrid is kept because it was never
   worse at Hit@5 and exact error codes are a known weak spot for embeddings; this is a judgement, not a
   measured win.
-- The model-written part is validated for citations and team names, but not yet scored for groundedness
-  with an LLM judge; a manual spot-check is still to be done and recorded.
+- Groundedness is scored by a judge model (about 98-99% of statements supported) and by a hand read of ten
+  answers. Both are small samples, and the judge is itself a model. The recurring fault is omission of
+  secondary escalations, not invention.
 - If the KB entry itself is wrong, the assistant repeats it faithfully.
 - Free-tier limits: Groq allows roughly 8K tokens per minute per model, and Gemini's free tier is very
   small and may use prompts to improve Google products. All data here is synthetic and PII is masked first;

@@ -79,6 +79,8 @@ model in the chain fails, the user still gets the retrieved entries.
 ## 9. Open items
 
 - Deploy and verify the embedding model fits the hosting provider's function size limit.
-- Run the full LLM evaluation with real keys and record the result in `eval/report.md`.
-- Add an LLM-judge groundedness score and a manual spot-check of 10 answers.
-- Build a held-out question set to replace the in-sample threshold numbers.
+- Done: full LLM evaluation, a judge-model groundedness score, a held-out set and a ten-answer manual
+  read (see the README and `docs/SPOT_CHECK.md`).
+- Prompt change to list every escalation in the entry, and re-run both sets.
+- Retune the gate on a larger split; the held-out set is now used up as a test set if it informs changes.
+- A one-off Prompt Guard fix (threshold 0.98) was made after the held-out run exposed a false positive.
