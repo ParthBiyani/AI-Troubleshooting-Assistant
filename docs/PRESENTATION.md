@@ -1,6 +1,6 @@
 # Presentation script (10 minutes) and backup demo
 
-The deck is `docs/presentation/TriageGPT_deck.pptx`: 11 slides for the talk and 3 appendix slides for
+The deck is `docs/presentation/TriageGPT_deck.pptx`: 12 slides for the talk and 3 appendix slides for
 questions. Speaker notes are in the file (View, Notes). Fonts are Segoe UI and Consolas, so present from a
 Windows machine or check the layout once on the presenting machine.
 
@@ -9,17 +9,21 @@ manual supports; the model only writes it up, and code checks the result.
 
 ## Timing
 
-| Min        | Slides | What happens                                                               |
-| ---------- | ------ | -------------------------------------------------------------------------- |
-| 0:00-0:30  | 1      | Title. One line: the AI writes, it does not decide what is true            |
-| 0:30-1:15  | 2      | The problem: a confident wrong answer is worse than a slow one             |
-| 1:15-5:15  | 3-4    | Slide 3, then **leave the deck for the live demo** (slide 4 is the backup) |
-| 5:15-6:15  | 5      | How it works: the model is one step out of six                             |
-| 6:15-7:00  | 6      | Safe by design: masking, injection, citations, shown not claimed           |
-| 7:00-8:15  | 7-8    | How I tested (three sets) and the results                                  |
-| 8:15-9:00  | 9      | What broke: one live question exposed three faults                         |
-| 9:00-9:45  | 10     | Limits, next steps, and who did what                                       |
-| 9:45-10:00 | 11     | Close and QR code                                                          |
+The deck is 12 slides for the talk plus 3 appendix slides. The live demo replaces slide 4 in the timing.
+
+| Min        | Slides | What happens                                                                       |
+| ---------- | ------ | ---------------------------------------------------------------------------------- |
+| 0:00-0:30  | 1      | Title. One line: the AI writes, it does not decide what is true                    |
+| 0:30-1:00  | 2      | The problem: a confident wrong answer is worse than a slow one                     |
+| 1:00-5:00  | 3-4    | Slide 3, then **leave the deck for the live demo** (slide 4 is the backup)         |
+| 5:00-5:50  | 5      | How it works: the model is one step out of six                                     |
+| 5:50-6:30  | 6      | Safe by design: masking, injection, citations                                      |
+| 6:30-7:15  | 7      | How I tested: 94%, then 75%, then 88.6%                                            |
+| 7:15-8:15  | 8      | **What the 75% told me: four causes, four fixes** (the slide that shows judgement) |
+| 8:15-8:45  | 9      | How I found three of them: one live question                                       |
+| 8:45-9:20  | 10     | Results on the unseen set                                                          |
+| 9:20-9:50  | 11     | Limits, next steps, and who did what                                               |
+| 9:50-10:00 | 12     | Close and QR code                                                                  |
 
 ## Live demo (about 4 minutes)
 
@@ -38,6 +42,11 @@ If the free model limits are hit, the app falls back to another model or shows t
 real screenshots of all three behaviours as a backup.
 
 ## Things to say plainly
+
+- **The story to land (slides 7 and 8):** "75% was not a verdict, it was a to-do list." Retrieval had the right
+  entry first in 13 of 14 answerable questions, so the fault was in the decision logic, not in search. Four root
+  causes, four fixes, then 44 new questions written before changing anything and run once. Name the cost
+  honestly: on the same 24 questions, 4 of 6 misses were fixed, 1 new miss appeared and 2 remain.
 
 - The first version scored 94-96% on the questions it was tuned on and **75% on new ones**. The 44-question
   sealed set, written and committed before the fixes and run once, gave **88.6%** with **zero** out-of-scope
