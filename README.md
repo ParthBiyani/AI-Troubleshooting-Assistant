@@ -19,9 +19,9 @@ flowchart TD
     G1 -->|injection| B[Refuse politely]
     G1 --> R[Hybrid retrieval: BM25 + semantic, fused with RRF]
     R --> GATE{Confidence gate}
-    GATE -->|low| N[not_in_kb: no model call, closest entries only]
-    GATE -->|medium| C[clarify: model asks 1-3 questions]
-    GATE -->|high| A[answer: model writes up top-3 entries]
+    GATE -->|nothing close| N[not_in_kb: no model call, closest entries only]
+    GATE -->|confident| A[Model writes up the top-3 entries]
+    GATE -->|uncertain| C[Model decides: answer, ask 1-3 questions, or not in KB]
     C --> V[Validator]
     A --> V
     V -->|invalid citation or team| D[Dropped in code]
@@ -32,10 +32,13 @@ flowchart TD
 1. **Parse.** `lib/kb/parse.ts` turns the manual (67 entries, 15 teams, 4 priority levels) into structured data.
 2. **Retrieve.** MiniSearch (BM25 with field boosts, prefix and fuzzy matching) catches exact codes such as
    `RC 91` or `504`. `bge-small-en-v1.5` embeddings catch paraphrases. Reciprocal Rank Fusion merges the two.
-3. **Gate.** A deterministic rule on the retrieval scores picks `answer`, `clarify` or `not_in_kb` _before_
-   any model call. For `not_in_kb` the model is never called.
+3. **Gate.** A deterministic rule on the scores of the entry fused ranking put first has three outcomes:
+   nothing close (refuse, and the model is never called), confident (semantic and keyword support), or
+   uncertain, in which case the model sees the candidates and chooses between answering, asking questions, or
+   saying the KB does not cover it. The label the user sees is the validated model output.
 4. **Generate.** The model sees only the top-3 entries and the escalation directory, and must return JSON
-   matching a Zod schema in which every statement carries a `source_id`.
+   matching a Zod schema in which every statement carries a `source_id`, with every escalation route the entry
+   lists and its full attach list.
 5. **Validate.** Code drops any statement citing an entry that was not retrieved and any escalation to a
    team that is not in the directory. If nothing grounded is left, the raw entries are shown instead.
 
@@ -79,12 +82,15 @@ The chain is set by `LLM_MODELS` because model ids change often.
 
 ## Evaluation
 
-The test set ([eval/testset.json](eval/testset.json)) has 52 hand-written questions: 10 in KB wording,
-20 plain-language paraphrases, 5 error-code-only, 7 vague, 6 out of scope, 2 adversarial. Latest results
-are in [eval/retrieval-report.md](eval/retrieval-report.md) and
-[eval/report-gate-only.md](eval/report-gate-only.md).
+Three question sets, kept apart on purpose:
 
-Retrieval on the 37 answerable questions:
+| Set                                    | Questions | Role                                                                    |
+| -------------------------------------- | --------- | ----------------------------------------------------------------------- |
+| [eval/testset.json](eval/testset.json) | 52        | Used while building and choosing thresholds (development data)          |
+| [eval/heldout.json](eval/heldout.json) | 24        | Written afterwards; its failures were then inspected (development data) |
+| [eval/sealed.json](eval/sealed.json)   | 44        | Written and committed before the second round of changes, run **once**  |
+
+Retrieval alone on the 37 answerable questions of the first set:
 
 | Retriever     | Hit@1 | Hit@3 | MRR   |
 | ------------- | ----- | ----- | ----- |
@@ -92,37 +98,44 @@ Retrieval on the 37 answerable questions:
 | Semantic only | 94.6% | 97.3% | 0.955 |
 | Hybrid (RRF)  | 91.9% | 97.3% | 0.948 |
 
-Gate decisions on all 52 questions: 49 correct (94.2%) with **0 false answers on out-of-scope questions**.
-Three misses: one error-code-only question sent to `clarify`, and two out-of-scope questions ("laptop VPN",
-"Apple Pay") that got `clarify` rather than `not_in_kb`.
+End to end, with the model in the loop (`npm run eval`; reports in [eval/](eval/)):
 
-With the model in the loop, by run (`npm run eval`; full tables in [eval/report.md](eval/report.md) and [eval/report-heldout.md](eval/report-heldout.md)):
+| Set                                                 | Answer model / judge                          | Decisions correct | Out-of-scope wrongly answered | Statements supported | Latency p50 / p95 |
+| --------------------------------------------------- | --------------------------------------------- | ----------------- | ----------------------------- | -------------------- | ----------------- |
+| Held-out 24, first design (gate v1, prompt v1.0)    | gpt-oss-120b / gpt-oss-20b                    | 18/24 (75.0%)     | 0                             | 116/118 (98.3%)      | 2.6 s / 4.4 s     |
+| Held-out 24, second design (development data)       | Gemini 3.5 Flash-Lite                         | 21/24 (87.5%)     | 0                             | not scored           | 2.5 s / 6.8 s     |
+| **Sealed 44, second design (clean test, run once)** | Gemini 3.5 Flash-Lite / Gemini 3.1 Flash-Lite | **39/44 (88.6%)** | **0**                         | **260/260 (100%)**   | 2.5 s / 6.9 s     |
 
-| Set                        | Answer model / judge model               | Decisions correct | Wrongly answered out-of-scope | Statements supported | Latency p50 / p95 |
-| -------------------------- | ---------------------------------------- | ----------------- | ----------------------------- | -------------------- | ----------------- |
-| Tuned, 52 questions        | gpt-oss-120b, no judge                   | 50/52 (96.2%)     | 0                             | not scored           | 2.5 s / 4.2 s     |
-| Tuned, 52 questions        | Gemini 3.5 Flash-Lite / Gemini 3.5 Flash | 49/52 (94.2%)     | 0                             | 204/205 (99.5%)      | 3.1 s / 6.7 s     |
-| **Held-out, 24 questions** | gpt-oss-120b / gpt-oss-20b               | **18/24 (75.0%)** | 0                             | 116/118 (98.3%)      | 2.6 s / 4.4 s     |
+The sealed row is the honest figure. The first design scored 94-96% on the set it was tuned on and 75% on
+unseen questions; the second design (gate scored on the entry fused ranking put first, the model arbitrating
+the uncertain band, every escalation route returned, prompt v1.2) scores 88.6% on unseen questions. The
+sealed set is now spent: any further tuning needs a fresh one. See [docs/DECISIONS.md](docs/DECISIONS.md)
+for how each change was made and what failed.
 
-The runs use different models because Groq's free tier has a daily token limit that the evaluations used
-up. The held-out set was written after the thresholds were chosen and never used to tune anything, so its
-75% is the honest figure: the drop is almost entirely questions that could have been answered but got a
-clarifying question. Ten answers were also read by hand against their entries ([docs/SPOT_CHECK.md](docs/SPOT_CHECK.md)):
-no invented steps or teams, but secondary escalations and attach lists are sometimes omitted.
+The runs use different models because Groq's free tier has a daily token limit that the evaluations used up.
+Ten answers were also read by hand against their entries ([docs/SPOT_CHECK.md](docs/SPOT_CHECK.md), done on
+the first design): no invented steps or teams, but secondary escalations and attach lists were omitted
+sometimes. That is what the second design's schema and prompt address.
+
+Misses on the sealed set: three very short vague messages ("the system seems down") scored just below the
+refusal floor and were told "not in KB" instead of getting follow-up questions; one credentials question got
+follow-up questions; one `KEY_REVOKED` question was judged outside the KB by the model.
 
 ## Limitations
 
-- **The thresholds were chosen by reading scores off this same 52-question set.** The 94.2% is therefore
-  in-sample and optimistic. A held-out set would be the next step.
-- 52 questions is small, and it was written by the project author, so it reflects one person's phrasing.
-- Plain semantic scores from a small embedding model are compressed (roughly 0.45 to 0.90), so some
-  out-of-scope questions that mention in-domain words (VPN, wifi) land in the "ask for more info" band.
+- **The development sets are no longer clean.** Thresholds and prompts were adjusted after inspecting failures
+  on them, so their scores are optimistic. Only the sealed 44-question set, scored once, is a fair estimate,
+  and it is spent now.
+- 44 to 52 questions per set is small, and all were written by the project author, so they reflect one
+  person's phrasing. The confidence interval on 88.6% over 44 questions is wide (roughly 75% to 95%).
+- Short vague messages and genuinely out-of-scope ones score alike on a small embedding model, so the refusal
+  floor sometimes refuses a vague message instead of asking follow-up questions. A cross-encoder re-ranker is the
+  next step.
 - Hybrid retrieval did not beat semantic-only at Hit@1 on this set. Hybrid is kept because it was never
   worse at Hit@5 and exact error codes are a known weak spot for embeddings; this is a judgement, not a
   measured win.
-- Groundedness is scored by a judge model (about 98-99% of statements supported) and by a hand read of ten
-  answers. Both are small samples, and the judge is itself a model. The recurring fault is omission of
-  secondary escalations, not invention.
+- Groundedness is scored by a judge model (98-100% of statements supported across runs) and by a hand read of
+  ten answers. Both are small samples and the judge is itself a model, so it screens rather than proves.
 - If the KB entry itself is wrong, the assistant repeats it faithfully.
 - Free-tier limits: Groq allows roughly 8K tokens per minute per model, and Gemini's free tier is very
   small and may use prompts to improve Google products. All data here is synthetic and PII is masked first;

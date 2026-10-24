@@ -5,20 +5,35 @@ are the honest ones.
 
 ## The numbers to remember
 
-| Measure                                 | Tuned set (52 questions)                       | Held-out set (24 questions) |
-| --------------------------------------- | ---------------------------------------------- | --------------------------- |
-| Decision accuracy with the model        | 49/52, 94.2% (50/52 with another writer model) | 18/24, 75.0%                |
-| Out-of-scope questions wrongly answered | 0                                              | 0                           |
-| Correct entry at rank 1                 | 34/37                                          | 13/14                       |
-| Groundedness (judge model)              | 204/205 statements, 99.5%                      | 116/118 statements, 98.3%   |
-| Latency p50 / p95                       | 3.1 s / 6.7 s                                  | 2.6 s / 4.4 s               |
+| Measure                                   | First design, held-out (24) | Second design, sealed (44, run once) |
+| ----------------------------------------- | --------------------------- | ------------------------------------ |
+| Decisions correct (answer / ask / refuse) | 18/24, 75.0%                | **39/44, 88.6%**                     |
+| Out-of-scope questions wrongly answered   | 0                           | **0**                                |
+| Correct entry at rank 1 (answerable)      | 13/14                       | 25/29                                |
+| Statements supported by a judge model     | 116/118, 98.3%              | 260/260, 100%                        |
+| Latency p50 / p95                         | 2.6 s / 4.4 s               | 2.5 s / 6.9 s                        |
 
-The runs used different answer models (Groq gpt-oss-120b, then Gemini 3.5 Flash-Lite) because the free
-Groq daily token limit ran out mid-evaluation. Say so if asked; do not blur it.
+How to explain the two rows honestly:
 
-The tuned set is the one the thresholds were read off, so its score is optimistic. The held-out set was
-written afterwards and never used to change anything. The gap between them (94-96% vs 75%) is the honest
-cost of tuning on a small set.
+- The **first design** scored 94-96% on the 52 questions it was tuned on, and 75% on 24 questions written
+  afterwards. That gap is the cost of tuning on a small set.
+- I then looked at the failures, fixed three real faults (below), and wrote **44 new questions before changing
+  anything**, committed them, froze the code, and ran them **once**: 88.6%. The sets differ (24 vs 44), so this
+  is not a like-for-like comparison, but the sealed set is the only clean estimate I have.
+- The 44-question set is now spent. Any further tuning needs a fresh one.
+- With 44 questions the uncertainty is wide, roughly 75% to 95%.
+
+The runs used different answer models (Groq gpt-oss-120b early on, then Gemini 3.5 Flash-Lite) because the
+free Groq daily token limit ran out mid-evaluation. Say so if asked; do not blur it.
+
+**The three faults, found from one live question ("Payment is hitting 504 again and again"):**
+
+1. The gate read the highest semantic score among all five retrieved entries, which belonged to an unrelated
+   entry, instead of the score of the entry fused ranking put first.
+2. The badge said "Need more info" above a complete answer, because the label came from the gate and not from
+   the validated model output.
+3. The model returned only one escalation team where the entry lists four, so the schema and prompt now return
+   every route and the full attach list.
 
 ## Questions you will probably get
 
@@ -34,17 +49,18 @@ any statement that cites an entry that was not retrieved, and any team not in th
 when retrieval confidence is low the model is not called at all.
 
 **How did you choose the thresholds? What happens at the boundary?**
-I printed the retrieval scores for every question in the first set and picked the values that separated
-the groups: below 0.62 refuse, 0.70 and above with a clear lead answer, between them ask. At the boundary
-the result is "ask for more information", which is the cheap failure. The weakness is that I tuned and
-scored on the same 52 questions, which is why I built a held-out set of 24. On it the decision accuracy
-fell to 75%, almost all of it questions that should have been answered but got a clarifying question.
+I printed the retrieval scores for every development question and picked the values that separated the
+groups: below 0.62 on the best candidate, refuse; at or above 0.70 semantic and 150 keyword on the top-ranked
+entry, answer confidently; in between, uncertain, and the model decides. The weakness is that I tuned on the
+same questions I then scored, which is why I wrote a held-out set (75%) and then a sealed set that I ran once
+(88.6%). The sealed set is the honest figure.
 
-**So is the gate too cautious?**
-Yes, on paraphrases. Of 14 answerable held-out questions, 10 were answered, 3 got "need more info" and
-1 got "not in KB". The correct entry was at rank 1 in 13 of 14, so retrieval found it; the gate did not
-trust it. That is deliberate: the costly failure is a wrong answer to an out-of-scope question, and there
-were none. A real fix would be a calibrated confidence score, trained on more labelled data.
+**So is it too cautious now?**
+Less than before. On the sealed set 27 of 29 answerable questions were answered, 1 got follow-up questions and 1 was
+told "not in KB". The remaining weak spot is the opposite one: very short vague messages ("the system seems down")
+scored just under the refusal floor and were told "not in KB" instead of being asked what is wrong. Short vague
+messages and genuinely out-of-scope ones score alike on a small embedding model. A cross-encoder re-ranker would
+separate them better, and that is the next step.
 
 **Why hybrid search and not only embeddings?**
 Exact tokens like `RC 91`, `504` and `KEY_REVOKED` are weak spots for small embedding models. On my set
