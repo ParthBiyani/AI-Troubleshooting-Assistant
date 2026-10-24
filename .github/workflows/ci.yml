@@ -82,7 +82,7 @@ jobs:
       - name: Fail if a refused question was answered
         run: |
           grep -qF "out-of-scope questions: **0**" eval/report-gate-only.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: eval-reports
           path: eval/*.md
