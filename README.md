@@ -77,8 +77,6 @@ Safety layers: card numbers (Luhn-checked), OTPs and CVVs are masked before logg
 prompt-injection attempts are blocked by heuristics plus Groq Prompt Guard; model calls fall back across
 providers on rate limits; repeated questions are cached and each IP is rate limited.
 
-More detail and the reasoning behind each choice is in [docs/DECISIONS.md](docs/DECISIONS.md).
-
 ## Setup
 
 Requires Node.js 22+.
@@ -132,8 +130,7 @@ The sets differ in size and content, so read this as a trend and not a like-for-
 questions the uncertainty is wide, roughly 75% to 95%.
 
 _The habit this shows: measure on data you did not tune on, isolate the failing layer, fix causes rather than
-symptoms, and keep a clean final test._ Per-run numbers are in the next section, and the full engineering log is
-in [docs/DECISIONS.md](docs/DECISIONS.md).
+symptoms, and keep a clean final test._ Per-run numbers are in the next section.
 
 ## Evaluation
 
@@ -164,12 +161,10 @@ End to end, with the model in the loop (`npm run eval`; reports in [eval/](eval/
 The sealed row is the honest figure. The first design scored 94-96% on the set it was tuned on and 75% on
 unseen questions; the second design (gate scored on the entry fused ranking put first, the model arbitrating
 the uncertain band, every escalation route returned, prompt v1.2) scores 88.6% on unseen questions. The
-sealed set is now spent: any further tuning needs a fresh one. See [docs/DECISIONS.md](docs/DECISIONS.md)
-for how each change was made and what failed.
+sealed set is now spent: any further tuning needs a fresh one.
 
 The runs use different models because Groq's free tier has a daily token limit that the evaluations used up.
-Ten answers were also read by hand against their entries ([docs/SPOT_CHECK.md](docs/SPOT_CHECK.md), done on
-the first design): no invented steps or teams, but secondary escalations and attach lists were omitted
+Ten answers were also read by hand against their entries (done on the first design): no invented steps or teams, but secondary escalations and attach lists were omitted
 sometimes. That is what the second design's schema and prompt address.
 
 Misses on the sealed set: three very short vague messages ("the system seems down") scored just below the
@@ -218,5 +213,5 @@ lib/pipeline.ts      The end-to-end request flow
 scripts/             Index build
 eval/                Test set, runners and reports
 tests/               Unit tests
-docs/                Decision log
+docs/screenshots/    Demo GIFs used in this readme
 ```

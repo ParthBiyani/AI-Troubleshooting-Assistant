@@ -45,3 +45,7 @@ next-env.d.ts
 
 # embedding model downloaded by the index build and bundled into the deployment
 /.model-cache
+
+# study and presentation material, kept locally and not published
+/docs/*
+!/docs/screenshots/
