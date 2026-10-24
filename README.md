@@ -1,5 +1,7 @@
 # TriageGPT: AI Troubleshooting Assistant for L1/L2 Support
 
+**Live demo: <https://triage-gpt-seven.vercel.app/>**
+
 A chat and search tool for support engineers. Describe an issue in plain language and the app finds the
 relevant entries in a support knowledge base (KB), writes up step-by-step checks and an escalation team
 from those entries, and shows exactly which entry each statement came from. When the KB does not cover
@@ -14,6 +16,22 @@ decide what the KB supports; the model only writes it up, and code checks the re
 ![TriageGPT answering a question, with the cited sources and scores beside it](docs/screenshots/answer-desktop.png)
 
 <p align="center"><img src="docs/screenshots/answer-mobile.png" alt="The same answer on a phone" width="320" /></p>
+
+## Using it
+
+- **Ask** in plain language. Answers list likely causes, L1/L2 checks, the resolution and every escalation
+  route with what to attach, and each statement links to the manual entry it came from.
+- **New chat** starts a fresh conversation. The button is in the header and at the top of the sidebar.
+- **Chat history** is the left sidebar, grouped by Today, Yesterday, Previous 7 days and Older. Click a chat
+  to review it exactly as it was, open its sources, or delete it. It keeps the 50 most recent chats.
+- **Privacy.** History is stored in your own browser (localStorage), never on a server, so other visitors
+  cannot see your questions. Card numbers, OTPs and CVVs are masked before anything is saved, and only a
+  slim copy of each source is kept; the full entry is fetched again when you open it.
+- **Under the hood** (header switch) shows the pipeline for the latest answer: guards, retrieval, gate,
+  model and validation.
+- **Themes.** Light by default; the moon icon switches to a near-black dark theme and the choice is remembered.
+- **Links.** `/?q=payment+failing` asks a question on load; add `&debug=1` to open the pipeline view or
+  `&theme=dark` to pick a theme.
 
 ## How it works
 

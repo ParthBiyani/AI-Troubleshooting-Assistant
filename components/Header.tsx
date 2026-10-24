@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Moon, ScanSearch, Sun } from "lucide-react";
+import { BookOpen, Moon, PanelLeft, ScanSearch, SquarePen, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MANUAL_PDF } from "./ui";
 
@@ -24,8 +24,11 @@ function ThemeToggle() {
     } catch {
       /* storage unavailable */
     }
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = saved ? saved === "dark" : prefersDark;
+    // Light unless the visitor has chosen dark with the toggle; the system setting is ignored.
+    // A link can pick the theme (?theme=dark), which is handy for demos and screenshots.
+    const fromLink = new URLSearchParams(window.location.search).get("theme");
+    const choice = fromLink === "dark" || fromLink === "light" ? fromLink : saved;
+    const next = choice === "dark";
     document.documentElement.dataset.theme = next ? "dark" : "light";
     setDark(next);
   }, []);
@@ -56,13 +59,31 @@ function ThemeToggle() {
 export function Header({
   showInternals,
   onToggleInternals,
+  onToggleSidebar,
+  onNewChat,
+  canStartNew,
+  busy,
 }: {
   showInternals: boolean;
   onToggleInternals: (v: boolean) => void;
+  onToggleSidebar: () => void;
+  onNewChat: () => void;
+  /** A chat with messages is open, so "New chat" does something. */
+  canStartNew: boolean;
+  busy: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-canvas/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label="Toggle chat history"
+          className="grid size-9 shrink-0 place-items-center rounded-lg border border-line bg-surface text-muted transition hover:border-brand hover:text-brand"
+        >
+          <PanelLeft size={16} aria-hidden />
+        </button>
+
         <div className="flex items-center gap-3">
           <span className="grid size-9 place-items-center rounded-xl bg-brand text-brand-ink shadow-card">
             <ScanSearch size={20} aria-hidden />
@@ -78,6 +99,18 @@ export function Header({
         </span>
 
         <div className="ml-auto flex items-center gap-2">
+          {canStartNew && (
+            <button
+              type="button"
+              onClick={onNewChat}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-brand-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <SquarePen size={14} aria-hidden />
+              <span className="hidden sm:inline">New chat</span>
+              <span className="sm:hidden">New</span>
+            </button>
+          )}
           <label className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium text-muted transition hover:border-brand">
             <input
               type="checkbox"
