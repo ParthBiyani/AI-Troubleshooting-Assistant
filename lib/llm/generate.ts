@@ -10,7 +10,7 @@ export interface ModelSpec {
 
 /** Model ids change often, so the fallback chain lives in an env var. */
 export const DEFAULT_CHAIN =
-  "groq:openai/gpt-oss-120b,groq:qwen/qwen3-32b,groq:openai/gpt-oss-20b,google:gemini-2.5-flash-lite";
+  "groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b,groq:openai/gpt-oss-20b,google:gemini-3.5-flash-lite";
 
 export function parseChain(raw = process.env.LLM_MODELS ?? DEFAULT_CHAIN): ModelSpec[] {
   return raw
