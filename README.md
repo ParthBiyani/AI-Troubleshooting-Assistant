@@ -96,6 +96,8 @@ Gate decisions on all 52 questions: 49 correct (94.2%) with **0 false answers on
 Three misses: one error-code-only question sent to `clarify`, and two out-of-scope questions ("laptop VPN",
 "Apple Pay") that got `clarify` rather than `not_in_kb`.
 
+With the model in the loop (`npm run eval`, [eval/report.md](eval/report.md)): **50/52 decisions correct (96.2%)**, 0 false answers on out-of-scope questions, 35 model-written answers with 0 citations or teams removed by the validator, latency p50 2.5 s / p95 4.2 s. The model improved one result over the gate alone: it downgraded "laptop VPN" to `not_in_kb`. The two remaining misses are "RedisConnectionException in payments logs" (sent to `clarify`) and "Apple Pay" (`clarify` instead of `not_in_kb`). Groundedness is so far only checked structurally (citations and team names); a judge-model score and a manual spot-check are still to do.
+
 ## Limitations
 
 - **The thresholds were chosen by reading scores off this same 52-question set.** The 94.2% is therefore
