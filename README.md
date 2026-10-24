@@ -102,31 +102,29 @@ answers fall back to showing the raw KB entries.
 
 The chain is set by `LLM_MODELS` because model ids change often.
 
-## From 75% to 88.6%: what the failures taught me
+## From 94% to an honest 88.6%
 
-My first version scored 94-96% on the questions I had tuned it on. To find out how it really behaved, I wrote
-24 new questions afterwards, and it scored **75%**. I treated that number as a to-do list, not a verdict:
-I read all six misses and traced each to a root cause. Retrieval had put the right entry first in 13 of 14
-answerable questions, so the fault was in the decision logic around it, not in search.
+I first measured the gate on the same 52 questions I had tuned it on and got **94%**. That number only showed
+how well I had tuned it, so I did not trust it.
 
-| What I saw                                                                                   | Root cause                                                                                                            | The fix                                                                                                                 | Evidence                                                    |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Right entry ranked first, yet 4 answerable questions got "need more info" or "not in KB"     | The gate read the best semantic score of _any_ entry, not the top-ranked entry's, and trusted a compressed score band | Score the top-ranked entry plus a keyword floor; the model decides the uncertain band, and the label follows its output | Same 24 questions: 75% to 87.5%. Unseen 44 questions: 88.6% |
-| A real question ("CrashLoopBackOff on the payments pods") was blocked as an attack           | Groq Prompt Guard scores jargon-only text at 0.975; my cut-off was 0.5                                                | Scored all 76 questions, found a clean gap (attacks 0.99+), moved the cut-off to 0.98, added tests                      | 3 of 3 attacks on the unseen set still refused              |
-| "Need more info" badge above a complete answer (found with one live question)                | The label came from the gate, not from the validated model output                                                     | The label follows the validated output; a gate refusal stays final                                                      | Pipeline tests for both directions                          |
-| One escalation team shown where the entry lists four; attach list empty (same live question) | The output schema allowed a single escalation                                                                         | The schema returns every route and the attach list; prompt v1.2 asks for both                                           | The 504 answer now lists PPE, ABP, DBRE and SRE             |
+- **Re-measured on fresh data.** I wrote 24 questions the system had never seen. It scored **75%**: the real
+  baseline.
+- **Isolated the weak layer.** I evaluated each layer on its own. Retrieval put the right entry first in
+  **13 of 14** answerable questions, so search was sound and the loss was in the decision layer around it.
+- **Fixed it.** The gate now scores the top-ranked entry (with a keyword-support floor) instead of the best
+  score across all candidates. The model decides only the genuinely uncertain band, and the label always follows
+  the validated output. I also set the injection guard's cut-off from data: scoring all 76 questions showed
+  attacks at 0.99 or more and the nearest legitimate question at 0.975, so the cut-off is 0.98.
+- **Proved it without fooling myself.** I wrote 44 more questions, committed them before changing the code,
+  froze the code and ran them once: **88.6% decisions correct, no out-of-scope question answered, and 260 of
+  260 statements supported** by a judge model.
 
-**Result.** On the same 24 questions, 4 of the 6 misses were fixed, 1 new miss appeared (a question that now asks
-for detail instead of answering) and 2 remain. Because I had by then looked at those failures, those 24 questions
-are development data and their 87.5% is optimistic. So before changing anything else I wrote 44 new questions,
-committed them (the git history shows they predate the fixes), froze the code and ran them **once**:
-**88.6% decisions correct, no out-of-scope question answered, and 260 of 260 statements supported** by a judge
-model. The sets differ in size and content, so this is a trend and not a like-for-like comparison, and with 44
-questions the uncertainty is wide (roughly 75% to 95%).
+The sets differ in size and content, so read this as a trend and not a like-for-like comparison. With 44
+questions the uncertainty is wide, roughly 75% to 95%.
 
-What this shows: measuring on questions I had not tuned on, diagnosing failures to a root cause before touching
-code, fixing causes rather than symptoms, keeping a clean test set, and reporting what is still broken. The full
-reasoning is in [docs/DECISIONS.md](docs/DECISIONS.md), and the numbers per run are below.
+_The habit this shows: measure on data you did not tune on, isolate the failing layer, fix causes rather than
+symptoms, and keep a clean final test._ Per-run numbers are in the next section, and the full engineering log is
+in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Evaluation
 
