@@ -24,8 +24,8 @@ function ThemeToggle() {
     } catch {
       /* storage unavailable */
     }
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = saved ? saved === "dark" : prefersDark;
+    // Light unless the visitor has chosen dark with the toggle; the system setting is ignored.
+    const next = saved === "dark";
     document.documentElement.dataset.theme = next ? "dark" : "light";
     setDark(next);
   }, []);
