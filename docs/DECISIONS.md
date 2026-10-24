@@ -116,3 +116,18 @@ model in the chain fails, the user still gets the retrieved entries.
 - Done: every escalation route and the attach list are returned (prompt v1.2), and the sealed set was run once.
 - Next: a cross-encoder re-ranker for the very short vague messages, evaluated on a fresh sealed set. The current sealed set is now spent.
 - A one-off Prompt Guard fix (threshold 0.98) was made after the held-out run exposed a false positive.
+
+## 10. Chat history is per browser, not a shared log
+
+"History of all chats on the website" could mean a shared log of every visitor's questions or each person's
+own history, as in a chat product. We built the second. A shared log needs a database, and it would put every
+visitor's questions, which can contain merchant details, in front of everyone else, which contradicts the
+privacy approach elsewhere in the app. History is therefore stored in the visitor's browser (localStorage).
+
+- Messages are masked (card numbers, OTPs, CVVs) before saving, and titles come from the masked text.
+- Each stored answer keeps its scores, gate and guard details but not the full text of each retrieved entry
+  (about 90% of its size); `/api/entries/[id]` returns that text when a source card is opened again.
+- At most 50 chats are kept, and if the browser refuses a write the oldest chat is dropped and the write
+  retried, so history degrades gracefully instead of failing silently.
+- Trade-offs: history does not follow the user to another browser or device, and clearing site data erases it.
+  A signed-in, server-side history would fix that and is the next step if the app is ever used by a team.
