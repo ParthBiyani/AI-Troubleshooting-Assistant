@@ -1,9 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnswerCard } from "@/components/AnswerCard";
+import { Composer } from "@/components/Composer";
+import { EmptyState } from "@/components/EmptyState";
+import { Header } from "@/components/Header";
 import { SourcesPanel } from "@/components/SourcesPanel";
-import { EXAMPLE_GROUPS } from "@/components/examples";
+import { Thinking } from "@/components/Thinking";
 import type { AskResponse } from "@/lib/pipeline";
 
 type Message =
@@ -17,170 +20,142 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showInternals, setShowInternals] = useState(false);
-  const [teams, setTeams] = useState<Record<string, string>>({});
   const bottom = useRef<HTMLDivElement>(null);
+  const autoRan = useRef(false);
 
   const latest = [...messages].reverse().find((m) => m.role === "assistant");
   const latestResponse = latest?.role === "assistant" ? latest.response : null;
 
-  async function send(text: string) {
-    const question = text.trim();
-    if (!question || loading) return;
+  const send = useCallback(
+    async (text: string) => {
+      const question = text.trim();
+      if (question.length < 2 || loading) return;
 
-    // After a "need more info" reply, the next message is treated as a follow-up to the last question.
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const wasClarifying = latestResponse?.mode === "clarify";
-    const previousQuestion = wasClarifying && lastUser?.role === "user" ? lastUser.text : undefined;
+      // After a "need more info" reply, the next message is a follow-up to the last question.
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      const previousQuestion =
+        latestResponse?.mode === "clarify" && lastUser?.role === "user" ? lastUser.text : undefined;
 
-    setMessages((m) => [...m, { role: "user", text: question }]);
-    setInput("");
-    setLoading(true);
-    setOpenId(null);
+      setMessages((m) => [...m, { role: "user", text: question }]);
+      setInput("");
+      setLoading(true);
+      setOpenId(null);
 
-    try {
-      const res = await fetch("/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, previousQuestion }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      setMessages((m) => [...m, { role: "assistant", response: data as AskResponse }]);
-      setTeams((t) => {
-        const next = { ...t };
-        for (const s of (data as AskResponse).sources)
-          next[s.entry.owningTeamCode] = s.entry.owningTeam.replace(/\s*\(.*\)$/, "");
-        return next;
-      });
-    } catch (err) {
-      setMessages((m) => [
-        ...m,
-        { role: "error", text: err instanceof Error ? err.message : "Request failed" },
-      ]);
-    } finally {
-      setLoading(false);
-      setTimeout(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
+      try {
+        const res = await fetch("/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, previousQuestion }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Request failed");
+        setMessages((m) => [...m, { role: "assistant", response: data as AskResponse }]);
+      } catch (err) {
+        setMessages((m) => [
+          ...m,
+          { role: "error", text: err instanceof Error ? err.message : "Request failed" },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading, messages, latestResponse],
+  );
+
+  // A shareable link: /?q=payment+failing asks that question on load.
+  useEffect(() => {
+    if (autoRan.current) return;
+    autoRan.current = true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("debug") === "1") setShowInternals(true);
+    const q = params.get("q");
+    if (q) void send(q);
+  }, [send]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
+
+  function openEntry(id: string) {
+    setOpenId(id);
+    setTimeout(
+      () =>
+        document
+          .getElementById(`source-${id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      60,
+    );
   }
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">TriageGPT</h1>
-            <p className="text-xs text-zinc-500">
-              L1/L2 troubleshooting assistant grounded in a support knowledge base
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-            <input
-              type="checkbox"
-              checked={showInternals}
-              onChange={(e) => setShowInternals(e.target.checked)}
-            />
-            Under the hood
-          </label>
-        </div>
-      </header>
+      <Header showInternals={showInternals} onToggleInternals={setShowInternals} />
 
-      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-4 lg:grid-cols-[3fr_2fr]">
-        <section className="flex min-h-[60vh] flex-col">
-          <div className="flex-1 space-y-4 pb-4">
-            {messages.length === 0 && (
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Describe an issue in plain language. Answers come only from the knowledge base and
-                  cite the entry they used. Try an example:
+      <main className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-x-8 gap-y-6 px-4 pt-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[1fr_auto]">
+        <section className="min-w-0 space-y-4" aria-label="Conversation">
+          {messages.length === 0 && !loading && (
+            <EmptyState
+              onPick={(q) => {
+                setInput("");
+                void send(q);
+              }}
+            />
+          )}
+
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <div key={i} className="animate-fade-up flex justify-end">
+                <p className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-brand px-4 py-2.5 text-[15px] leading-relaxed text-brand-ink shadow-card">
+                  {m.text}
                 </p>
-                {EXAMPLE_GROUPS.map((g) => (
-                  <div key={g.label}>
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      {g.label}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {g.chips.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => send(c)}
-                          className="rounded-full border border-zinc-300 px-3 py-1 text-left text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
               </div>
-            )}
+            ) : m.role === "error" ? (
+              <div
+                key={i}
+                role="alert"
+                className="animate-fade-up rounded-2xl border border-bad/40 bg-bad-soft p-4 text-sm text-bad"
+              >
+                {m.text}
+              </div>
+            ) : (
+              <AnswerCard key={i} response={m.response} onOpenEntry={openEntry} />
+            ),
+          )}
 
-            {messages.map((m, i) =>
-              m.role === "user" ? (
-                <div
-                  key={i}
-                  className="ml-auto max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
-                >
-                  {m.text}
-                </div>
-              ) : m.role === "error" ? (
-                <div
-                  key={i}
-                  className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-                >
-                  {m.text}
-                </div>
-              ) : (
-                <AnswerCard
-                  key={i}
-                  response={m.response}
-                  teamName={(code) => teams[code] ?? code}
-                  onOpenEntry={setOpenId}
-                />
-              ),
-            )}
-            {loading && <p className="text-sm text-zinc-500">Searching the knowledge base…</p>}
-            <div ref={bottom} />
-          </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="sticky bottom-0 flex gap-2 bg-[var(--background)] pb-2"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              maxLength={600}
-              placeholder="Describe the issue…"
-              className="flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:focus:border-zinc-200"
-            />
-            <button
-              disabled={loading || input.trim().length < 2}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              Ask
-            </button>
-          </form>
+          {loading && <Thinking />}
+          <div ref={bottom} />
         </section>
 
-        <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <SourcesPanel
-            response={latestResponse}
-            openId={openId}
-            onOpen={setOpenId}
-            showInternals={showInternals}
-          />
+        <aside className="min-w-0 lg:row-span-2 lg:row-start-1 lg:col-start-2">
+          <div className="lg:sticky lg:top-[4.75rem] lg:max-h-[calc(100vh-5.75rem)] lg:overflow-y-auto lg:pb-4 lg:pr-1">
+            <SourcesPanel
+              response={latestResponse}
+              openId={openId}
+              onOpen={setOpenId}
+              showInternals={showInternals}
+            />
+          </div>
         </aside>
+
+        <div className="sticky bottom-0 z-20 -mx-4 bg-gradient-to-t from-canvas via-canvas/95 to-transparent px-4 pb-4 pt-6 sm:-mx-6 sm:px-6 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:px-0">
+          <Composer
+            value={input}
+            onChange={setInput}
+            onSubmit={() => void send(input)}
+            loading={loading}
+            placeholder={
+              latestResponse?.mode === "clarify"
+                ? "Reply with the details above…"
+                : "Describe the issue, e.g. payments timing out with 504…"
+            }
+          />
+        </div>
       </main>
 
-      <footer className="border-t border-zinc-200 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-800">
+      <footer className="border-t border-line px-4 py-4 text-center text-xs text-muted">
         Sample data: Northwind Payments is a fictional company and the knowledge base is simulated.
-        ·{" "}
-        <a className="underline" href="https://github.com/ParthBiyani/AI-Troubleshooting-Assistant">
-          Source on GitHub
-        </a>
+        Answers come only from that manual.
       </footer>
     </div>
   );

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The corner badge only appears in development and clutters demos and screenshots.
+  devIndicators: false,
   // Native ONNX runtime bindings can't be bundled; load them from node_modules at runtime.
   serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "sharp"],
   outputFileTracingIncludes: {

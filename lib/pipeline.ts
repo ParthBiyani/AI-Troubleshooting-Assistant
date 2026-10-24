@@ -28,6 +28,8 @@ export interface AskResponse {
   /** Deterministic text shown instead of, or alongside, the model output. */
   message: string;
   sources: SourceCard[];
+  /** Escalation directory (code to team name), so the UI can name teams without bundling the KB. */
+  teams: Record<string, string>;
   gate: GateResult & { thresholds: typeof THRESHOLDS };
   guards: {
     maskedQuestion: string;
@@ -46,6 +48,10 @@ export interface AskResponse {
     denseAvailable: boolean;
   };
 }
+
+const TEAM_NAMES: Record<string, string> = Object.fromEntries(
+  corpus.teams.map((t) => [t.code, t.name]),
+);
 
 const cache = new TtlCache<AskResponse>(10 * 60_000);
 
@@ -70,7 +76,7 @@ function toSources(hits: RetrievedEntry[], contextCount: number): SourceCard[] {
 const NOT_IN_KB_MESSAGE =
   "The knowledge base does not cover this issue, so no troubleshooting steps are suggested. " +
   "Raise a ticket to L2 Application Support (L2-APP) with the symptoms, affected merchant or MID, " +
-  "error codes and the time window. Any entries shown below are only the closest matches and may not apply.";
+  "error codes and the time window. Any entries listed under Sources are only the closest matches and may not apply.";
 
 const BLOCKED_MESSAGE =
   "This message looks like an attempt to change the assistant's instructions, so it was not processed. " +
@@ -108,6 +114,7 @@ export async function ask(input: {
       answer: null,
       message: BLOCKED_MESSAGE,
       sources: [],
+      teams: TEAM_NAMES,
       gate: {
         decision: "not_in_kb",
         reason: "Blocked by the prompt-injection guard before retrieval.",
@@ -142,6 +149,7 @@ export async function ask(input: {
       answer: null,
       message: NOT_IN_KB_MESSAGE,
       sources: toSources(hits.slice(0, 3), 0),
+      teams: TEAM_NAMES,
       gate,
       guards,
       meta: { ...meta, latencyMs: Date.now() - start },
@@ -154,6 +162,7 @@ export async function ask(input: {
       answer: null,
       message: FALLBACK_MESSAGE,
       sources,
+      teams: TEAM_NAMES,
       gate,
       guards,
       meta,

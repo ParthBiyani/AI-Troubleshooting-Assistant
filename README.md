@@ -11,6 +11,10 @@ the issue it says so instead of guessing.
 The idea in one line: **the AI writes the answer, it does not decide what is true.** Retrieval and code
 decide what the KB supports; the model only writes it up, and code checks the result.
 
+![TriageGPT answering a question, with the cited sources and scores beside it](docs/screenshots/answer-desktop.png)
+
+<p align="center"><img src="docs/screenshots/answer-mobile.png" alt="The same answer on a phone" width="320" /></p>
+
 ## How it works
 
 ```mermaid

@@ -49,7 +49,17 @@ export class AllModelsFailed extends Error {
   }
 }
 
-/** Try each model in order. A 429 or schema failure moves on to the next one. */
+/**
+ * A schema-valid answer that says nothing (mode "answer" with no causes, checks or resolution,
+ * or "clarify" with no questions) is a failed attempt, not a success. Smaller models do this.
+ */
+export function isUsableAnswer(a: LlmAnswer): boolean {
+  if (a.mode === "not_in_kb") return true;
+  if (a.mode === "clarify") return a.clarifying_questions.length > 0;
+  return a.likely_causes.length + a.checks.length + a.resolution.length > 0;
+}
+
+/** Try each model in order. A 429, a schema failure or an empty answer moves on to the next one. */
 export async function generateAnswer(system: string, prompt: string): Promise<GenerateResult> {
   const failedAttempts: GenerateResult["failedAttempts"] = [];
 
@@ -69,6 +79,10 @@ export async function generateAnswer(system: string, prompt: string): Promise<Ge
         abortSignal: AbortSignal.timeout(25_000),
         output: Output.object({ schema: answerSchema }),
       });
+      if (!isUsableAnswer(result.output)) {
+        failedAttempts.push({ spec, error: "Returned an empty answer" });
+        continue;
+      }
       return {
         answer: result.output,
         spec,
