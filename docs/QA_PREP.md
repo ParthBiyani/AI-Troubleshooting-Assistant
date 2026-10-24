@@ -37,6 +37,22 @@ free Groq daily token limit ran out mid-evaluation. Say so if asked; do not blur
 
 ## Questions you will probably get
 
+**You scored 75%. What did you actually do about it?**
+I read every miss. Retrieval had the right entry first in 13 of 14 answerable questions, so search was fine and
+the decision logic was the problem. I found four causes. (1) The gate used the best semantic score of any
+retrieved entry instead of the top-ranked entry's score, and trusted a compressed score band; I changed it to
+score the top-ranked entry plus a keyword floor and let the model decide the uncertain band. (2) Prompt Guard
+was blocking a legitimate jargon-only question at 0.975 because my cut-off was 0.5; I scored all 76 questions,
+saw attacks at 0.99 or more, and set 0.98. (3) The badge came from the gate instead of the validated output, so
+a full answer could carry "Need more info". (4) The schema allowed one escalation team where entries list
+several. Then I wrote 44 new questions before changing anything, committed them, froze the code and ran them
+once: 88.6%, no dangerous answers.
+
+**Is 75% to 88.6% a fair before-and-after?**
+Not strictly, and I say so. They are different question sets of different sizes. The like-for-like figure is the
+same 24 questions: 75% to 87.5%, with 4 of 6 misses fixed, 1 new miss and 2 remaining, but I had inspected those,
+so it is optimistic. The 88.6% is the clean number, and with 44 questions the uncertainty is roughly 75% to 95%.
+
 **Why not just put all 67 entries in the prompt?**
 Three reasons. Tokens: the Groq free tier allows about 8K tokens a minute per model and the manual is
 far larger. Measurability: with retrieval I can score whether the right entry was found separately from
